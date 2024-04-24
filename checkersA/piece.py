@@ -1,8 +1,23 @@
-
 import pygame
-from .constants import RED, WHITE, SQUARE_SIZE, GREY, CROWN
+from .constants import  SQUARE_SIZE, GREY, CROWN
 
-class Piece:
+from abc import ABC, abstractmethod
+
+# IPiece Interface
+class InterfacePiece(ABC):
+    @abstractmethod
+    def draw(self, win):
+        pass
+
+    @abstractmethod
+    def move(self, row, col):
+        pass
+
+    @abstractmethod
+    def make_king(self):
+        pass
+
+class Piece(InterfacePiece):
     PADDING = 15
     OUTLINE = 2
     
