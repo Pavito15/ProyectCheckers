@@ -13,6 +13,7 @@ def main():
     
     font = pygame.font.SysFont('comicsans', 40, bold=True)
 
+
     run = True
     while run:
         clock.tick(60)
