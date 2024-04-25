@@ -1,26 +1,38 @@
 import pygame
 
 from .piece import Piece
+from .movemanager import MoveManager
+from .king_decorator import KingDecorator
 from .constants import BLACK, ROWS, RED, SQUARE_SIZE, COLS, WHITE 
 
 class Board:
+    '''Esta clase representa el tablero del juego de damas'''
     def __init__(self):
+        '''Se inicializa el tablero'''
         self.board = []
         self.red_left = self.white_left = 12
         self.red_kings = self.white_kings = 0
         self.create_board()
     
     def draw_square(self, win):
+        '''Dibuja los cuadros del tablero'''
         win.fill(BLACK)
         for row in range(ROWS):
             for col in range(row % 2, COLS, 2):  
                 pygame.draw.rect(win, RED, (row *SQUARE_SIZE, col *SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE))
 
+    def promote_to_king(self, piece, row, col):
+        if not piece.king:
+            piece.make_king()
+            # Aplica el decorador y actualiza la posición en el tablero
+            self.board[row][col] = KingDecorator(piece)
 
     def move(self, piece, row, col):
-        # Intercambia las posiciones en el tablero
-        self.board[piece.row][piece.col], self.board[row][col] = self.board[row][col], self.board[piece.row][piece.col]
-        piece.move(row, col)
+        """Mueve una pieza a una nueva posición. Retorna las piezas saltadas si hay alguna."""
+        MoveManager.move_piece(self, piece, row, col)
+        if (row == 0 or row == ROWS - 1) and not piece.king:
+            piece.make_king()
+            self.promote_to_king(piece, row, col)
 
         #verificacion de rey
         if row == ROWS - 1 or row == 0:
@@ -32,10 +44,12 @@ class Board:
 
     #obtenemos las piezas
     def get_piece(self, row, col):
+        '''Obtiene una pieza en una posición especifica en el tablero'''
         return self.board[row][col]        
         
     #creacion del tablero
     def create_board(self):
+        '''Crea el tablero incial del juego'''
         for row in range(ROWS):
             self.board.append([])
             for col in range (COLS):
@@ -51,6 +65,7 @@ class Board:
                     
     #dibujamos las piezas
     def draw(self, win):
+        '''Dibuja las piezas en el tablero'''
         self.draw_square(win)  
         for row in range(ROWS):
             for col in range(COLS):
@@ -59,94 +74,32 @@ class Board:
                     piece.draw(win)
     
     def remove(self, pieces):
-        for piece in pieces:
-            self.board[piece.row][piece.col] = 0
-            if piece != 0:
-                self.red_left -= 1
-            else:
-                self.white_left -= 1
+        '''Elimina piezas del tablero'''
+        MoveManager.remove_pieces(self, pieces)
     
     def winner(self):
-        if self.red_left <= 0:
-            return WHITE
-        elif self.white_left <= 0:
-            return RED
-
+        '''Determina si hay un ganador'''
+        if self.red_left == 0 :
+            return 'WHITE'
+        if self.white_left == 0 :
+            return 'RED'
         return None
 
 
+
     def get_value_moves(self, piece):
+        '''Obtiene los posibles movimientos validos para una pieza'''
         moves = {}
         left = piece.col - 1
         right = piece.col + 1
         row = piece.row
 
         if piece.color == RED or piece.king:
-            moves.update(self._traverse_left(row - 1, max(row - 3, -1), -1, piece.color, left))
-            moves.update(self._traverse_right(row - 1, max(row - 3, -1), -1, piece.color, right))
+            moves.update(MoveManager._traverse_left(self, row - 1, max(row - 3, -1), -1, piece.color, left))
+            moves.update(MoveManager._traverse_right(self, row - 1, max(row - 3, -1), -1, piece.color, right))
             
         if piece.color == WHITE or piece.king:
-            moves.update(self._traverse_left(row + 1, min(row + 3, ROWS), 1, piece.color, left))
-            moves.update(self._traverse_right(row + 1, min(row + 3, ROWS), 1, piece.color, right))
+            moves.update(MoveManager._traverse_left(self,row + 1, min(row + 3, ROWS), 1, piece.color, left))
+            moves.update(MoveManager._traverse_right(self,row + 1, min(row + 3, ROWS), 1, piece.color, right))
         
-        return moves
-
-        
-    def _traverse_left(self, start, stop, step, color, left, skipped=[]):
-        moves = {}
-        last = []
-        for r in range(start, stop, step):
-            if left < 0:
-                break
-            
-            current = self.board[r][left]
-            if current == 0:
-                if skipped and not last:
-                    break
-                
-                elif skipped:
-                    moves[(r, left)] = last + skipped
-                else:
-                    moves[(r, left)] = last
-                    
-                if last:
-                    if step == -1:
-                        row = max(r-3, 0)
-                    else:
-                        row = min(r+3, ROWS)
-                    moves.update(self._traverse_left(r+step, row, step, color, left-1, skipped=last))
-                    moves.update(self._traverse_right(r+step, row, step, color, left+1, skipped=last))
-                break
-            elif current.color == color:
-                break
-            else:
-                last = [current]
-                
-            left -= 1
-        return moves
-
-    def _traverse_right(self, start, stop, step, color, right, skipped=[]):
-        moves = {}
-        last = []
-        for r in range(start, stop, step):
-            if right >= COLS or right < 0:  # Chequeo de límites para 'right'
-                break
-            current = self.board[r][right]
-            if current == 0:
-                if skipped and not last:
-                    break
-                elif skipped:
-                    moves[(r, right)] = last + skipped
-                else:
-                    moves[(r, right)] = last
-                if last:
-                    row = min(r + 3, ROWS) if step == 1 else max(r - 3, -1)
-                    moves.update(self._traverse_left(r + step, row, step, color, right - 1, skipped=last))
-                    moves.update(self._traverse_right(r + step, row, step, color, right + 1, skipped=last))
-                break
-            elif current.color == color:
-                break
-            else:
-                last = [current]
-            right += step  # Incrementa o decrementa right adecuadamente
         return moves
